@@ -1,0 +1,19 @@
+#cloud-config
+
+users:
+  - name: falense
+    groups: users, admin
+    ssh_authorized_keys:
+      - master_ssh_key
+    passwd: "hashed password"
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+    chpasswd: { expire: False }
+    lock-passwd: false
+
+#Generate password hash with mkpasswd --method=SHA-512 --stdin. Hash is enclosed by "".
+
+ssh_pwauth: False ## This line disables ssh password authentication
+
+runcmd:
+    - cp /usr/share/doc/util-linux/examples/securetty /etc/securetty

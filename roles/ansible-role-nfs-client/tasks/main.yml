@@ -1,0 +1,3 @@
+
+- name: Mount NFS share
+  include: library/mount-nfs.yml

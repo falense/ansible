@@ -1,0 +1,135 @@
+---
+
+
+- name: Install common used tools
+  apt:
+    pkg:
+     - rsync
+     - nfs-common
+     - members
+    state: present
+  become: true
+
+- name: Add groups settings for SSHD
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    block: |
+      Match group backup_users
+          X11Forwarding no
+          AllowTcpForwarding no
+          PermitTunnel no
+          AllowAgentForwarding no
+#ChrootDirectory %h
+
+- name: Create mount point for NAS
+  ansible.builtin.file:
+    path: /mnt/backups
+    state: directory
+    mode: '0755'
+
+-  name: mount the nfsshare in client side
+   mount:
+     fstype: nfs
+     opts: defaults
+     dump: 0
+     passno: 0
+     state: mounted
+     src: "nas.hacknest.com:/zpo1/backup_host"
+     path: "/mnt/backups"
+
+- name: Ensure that group backup_users exists
+  ansible.builtin.group:
+    name: backup_users
+    state: present
+
+- name: Find all backup users
+  shell: "members backup_users| tr ' ' '\n'"
+  register: list_of_backup_users
+
+
+- name: Print return information from the previous task
+  ansible.builtin.debug:
+    var: list_of_backup_users
+
+- name: Delete all back users
+  user: 
+    name: "{{item}}"
+    state: absent 
+    remove: yes
+    force: yes
+  with_items: "{{list_of_backup_users.stdout_lines}}"
+  become: yes
+  #  when: item not in myusers
+
+- name: Create backup users
+  ansible.builtin.user:
+    name: "{{username}}"
+    shell: /bin/bash
+    groups: backup_users
+    append: yes
+    password_lock: yes
+  with_items:
+    - "{{backup_users}}"
+  vars:
+    username: "{{item.username}}"
+
+- name: Set authorized key defining key options
+  ansible.posix.authorized_key:
+    user: "{{username}}"
+    state: present
+    key: "{{ public_key }}"
+  with_items:
+    - "{{backup_users}}"
+  vars:
+    username: "{{item.username}}"
+    public_key: "{{item.public_key}}"
+
+- name: Create mount point for NAS
+  ansible.builtin.file:
+    path: "/home/backups"
+    state: directory
+    mode: '0775'
+
+- name: Create backup folder for each user
+  ansible.builtin.file:
+    path: "/mnt/backups/{{username}}"
+    state: directory
+    mode: '0770'
+    owner: root
+    group: "{{username}}"
+  with_items:
+    - "{{backup_users}}"
+  vars:
+    username: "{{item.username}}"
+  become: true
+
+- name: Make home directory read only
+  ansible.builtin.file:
+    path: "/home/{{username}}"
+    state: directory
+    mode: '0750'
+    owner: root
+    group: "{{username}}"
+  with_items:
+    - "{{backup_users}}"
+  vars:
+    username: "{{item.username}}"
+  become: true
+
+
+- name: Create a symbolic link
+  ansible.builtin.file:
+    src: "/mnt/backups/{{username}}"
+    dest: "/home/{{username}}/backup"
+    owner: root
+    group: "{{username}}"
+    state: link
+  with_items:
+    - "{{backup_users}}"
+  vars:
+    username: "{{item.username}}"
+
+
+#TODO add a cron job revoking/setting group of all newly created files to root. This prevents the user from changing it at all.
+
+

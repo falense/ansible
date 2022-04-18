@@ -1,0 +1,23 @@
+
+
+- name: Create cert receiving user
+  ansible.builtin.user:
+    name: "{{cert_receiving_user}}"
+    shell: /bin/bash
+    append: yes
+    password_lock: yes
+
+- name: Push authorized keys
+  authorized_key:
+    user: "{{ cert_receiving_user }}"
+    state: present
+    key: "{{ cert_auth_key }}"
+
+
+
+- name: Move certs to the final directory
+  ansible.builtin.cron:
+    name: "check dirs"
+    minute: "0"
+    job: "cp /home/{{cert_receiving_user}}/certs/* {{cron_cert_move_to_dir}}"
+  when: cron_cert_move_to_dir

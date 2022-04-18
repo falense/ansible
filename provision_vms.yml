@@ -1,0 +1,29 @@
+---
+# file: provision_vms.yml
+
+- hosts:
+    - hypervisor
+  roles:
+    - ansible-role-hypervisor
+    - ansible-role-backup-targetv2
+    - ansible-role-security
+  vars:
+    rclone_user: hypervisor
+    bash_location: /bin/bash
+
+    configs: 
+      - name: backup
+        disk: 10G
+        ram: 1024
+        vcpus: 1
+        mac: "52:54:00:ed:00:01"
+
+      - name: example
+        disk: 10G
+        ram: 1024
+        vcpus: 1  
+        mac: "52:54:00:bd:00:00"
+
+  become: yes
+
+        

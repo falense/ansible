@@ -1,0 +1,25 @@
+---
+# file: backup_vm.yml
+
+# Setup backup manager vm
+
+# Fully ansible managed. No backup required.
+
+- hosts:
+  - backup_vm
+  roles:
+  - ansible-role-security
+  - ansible-role-backup-host
+  - ansible-role-firewall
+  - ansible-role-clamav
+  become: true
+  vars:
+    static_backup_users:
+      - username: "username goes here"
+        public_key: "a static predefined public key goes here. Static keys are always pre generated"e
+
+    backup_users: "{{static_backup_users + dynamic_backup_users}}"
+
+    firewall_allowed_tcp_ports: 
+      - "22"
+

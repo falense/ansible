@@ -1,0 +1,65 @@
+
+- name: Check if the VM already exists
+  shell: "virsh -c qemu:///system list --all --name |grep {{name}}"
+  register: vm_exists
+  # grep will exit with 1 when no results found. 
+  # This causes the task not to halt play.
+  ignore_errors: true
+  changed_when: false
+
+- name: Result of check
+  ansible.builtin.debug:
+    msg: 
+      - "Requested VM exists {{not vm_exists.failed}}"
+      - "{{vm_exists}}"
+
+- name: Create images directory
+  file:
+    path: '{{ images_dir }}/{{name}}'
+    state: directory
+  when: vm_exists.failed
+  
+- name: Create base image directory
+  file:
+    path: '{{ images_dir }}/base'
+    state: directory
+  when: vm_exists.failed
+
+- name: Download base image
+  get_url:
+    url: http://cloud-images.ubuntu.com/focal/current/focal-server-cloudimg-amd64.img
+    dest: '{{base_image[:-4]}}-{{ansible_date_time["iso8601_basic"][:8]}}{{ansible_date_time["hour"]}}.img'
+    mode: '0666'
+    checksum: sha256:https://cloud-images.ubuntu.com/focal/current/SHA256SUMS
+  when: vm_exists.failed
+
+- name: Create VM image from base image
+  command: qemu-img create -b {{base_image[:-4]}}-{{ansible_date_time["iso8601_basic"][:8]}}{{ansible_date_time["hour"]}}.img -f qcow2 -F qcow2 {{ images_dir }}/{{ name }}/{{ name }}.img {{ image_capacity }}
+  when: vm_exists.failed
+
+- name: Create user-data
+  template:
+    src: user-data.j2
+    dest: '{{ images_dir }}/{{name}}/user-data'
+  when: vm_exists.failed
+
+- name: Create meta-data
+  template:
+    src: meta-data.j2
+    dest: '{{ images_dir }}/{{name}}/meta-data'
+  when: vm_exists.failed
+
+- name: Create cloud-init configuration image
+  command: genisoimage -output {{ images_dir }}/{{name}}/{{ name }}-cidata.iso -V cidata -r -J {{ images_dir }}/{{name}}/user-data {{ images_dir }}/{{name}}/meta-data
+  #become: yes
+  when: vm_exists.failed
+
+- name: Create the VM with predefined MAC
+  command: virt-install --name={{ name }} --ram={{ ram }} --vcpus={{ vcpus }} --import --disk path={{ images_dir }}/{{name}}/{{ name }}.img,format=qcow2 --disk path={{ images_dir }}/{{name}}/{{ name }}-cidata.iso,device=cdrom --os-variant={{ os }} --network bridge=br0,model=virtio,mac='{{mac}}' --graphics vnc,listen=0.0.0.0 --noautoconsole
+  when: mac and vm_exists.failed 
+  become: yes
+
+- name: Create the VM 
+  command: virt-install --name={{ name }} --ram={{ ram }} --vcpus={{ vcpus }} --import --disk path={{ images_dir }}/{{name}}/{{ name }}.img,format=qcow2 --disk path={{ images_dir }}/{{name}}/{{ name }}-cidata.iso,device=cdrom --os-variant={{ os }} --network bridge=br0,model=virtio --graphics vnc,listen=0.0.0.0 --noautoconsole
+  become: yes
+  when:  not mac and vm_exists.failed

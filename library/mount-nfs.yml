@@ -1,0 +1,27 @@
+---
+
+#file: mount-nfs.yml
+
+- name: Install nfs client 
+  apt:
+    pkg:
+     - nfs-common
+    state: present
+  become: true
+
+- name: Create mount point for NAS
+  ansible.builtin.file:
+    path: "{{nfs_mountpoint}}"
+    state: directory
+    mode: '{{nfs_mount_permissions}}'
+    owner: '{{nfs_mount_owner}}'
+
+-  name: mount the nfsshare in client side
+   mount:
+     fstype: nfs
+     opts: defaults
+     dump: 0
+     passno: 0
+     state: mounted
+     src: "{{nfs_host}}:{{nfs_share}}"
+     path: "{{nfs_mountpoint}}"

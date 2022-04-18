@@ -1,0 +1,83 @@
+
+- name: Install rclone
+  apt:
+    pkg:
+     - rclone
+    state: present
+
+- name: Create backup user
+  ansible.builtin.user:
+    name: "{{backup_user}}"
+    groups: "{{backup_user_groups}}"
+    append: yes
+    shell: /bin/bash
+    password_lock: yes
+  when: create_backup_user
+
+- name: Ensure backup folder exists.
+  file:
+    path: "{{backup_user_home}}/.config/rclone"
+    state: directory
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    mode: 0700
+
+- name: Generate an OpenSSH keypair for rclone
+  community.crypto.openssh_keypair:
+    path: "{{backup_user_home}}/.config/rclone/id_rsa"
+    #force: True
+    group: "{{ backup_user }}"
+    owner: "{{ backup_user }}"
+
+# - name: Print all available facts
+#   ansible.builtin.debug:
+#     var: ansible_facts
+
+- name: Download public key
+  shell: "cat {{backup_user_home}}/.config/rclone/id_rsa.pub"
+  register: rclone_public_key
+
+- name: Print public key
+  ansible.builtin.debug:
+    var: rclone_public_key
+
+- local_action: 
+    module: lineinfile 
+    line: "dynamic_backup_users:"
+    #path: "/home/falense/ansible/group_vars/{{inventory_hostname}}.yml"
+    path: "/home/falense/ansible/group_vars/backup_vm.yml"
+    create: yes
+  become: no
+
+- local_action: 
+    module: lineinfile 
+    regexp: "  - {username: {{rclone_user}}"
+    line: "  - {username: {{rclone_user}}, public_key: {{ rclone_public_key.stdout }}}"
+    #path: "/home/falense/ansible/group_vars/{{inventory_hostname}}.yml"
+    path: "/home/falense/ansible/group_vars/backup_vm.yml"
+  become: no
+
+- name: Copy rclone config into place
+  template:
+    src: "rclone.conf.j2"
+    dest: "{{backup_user_home}}/.config/rclone/rclone.conf"
+    owner: "{{backup_user}}"
+    group: "{{backup_user}}"
+    mode: 0600
+
+- name: Copy backup script to server.
+  template:
+    src: backup.sh.j2
+    dest: "{{backup_script_location}}/.backup.sh"
+    owner: "{{ backup_user }}"
+    group: "{{ backup_user }}"
+    mode: 0700
+
+- name: Configure backup cron jobs
+  cron:
+    name: "Backup cron job"
+    minute: "{{ backup_minute }}"
+    hour: "{{ backup_hour }}"
+    user: "{{ backup_user }}"
+    job: "{{bash_location}} {{backup_script_location}}/.backup.sh"
+    state: "{{ backup_cron_job_state }}"

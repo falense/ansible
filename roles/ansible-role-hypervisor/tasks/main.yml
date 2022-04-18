@@ -1,0 +1,11 @@
+
+- name: Create virtual machines
+  include: library/create-vm.yml
+  with_items:
+    - "{{configs}}"
+  vars:
+    name:  "{{ item.name }}"
+    image_capacity: "{{ item.disk }}"
+    ram: "{{ item.ram }}"
+    vcpus: "{{ item.vcpus }}"
+    mac: "{{item.mac}}"

@@ -1,0 +1,31 @@
+---
+
+- hosts:
+  - litebringer_vm
+  roles:
+  - ansible-role-clamav
+  - ansible-role-security
+  - ansible-role-firewall
+  - ansible-role-backup-targetv2
+  vars:
+    python: python3
+
+    #User on backup host
+    rclone_user: example
+    backup_minute: 30
+    backup_targets:
+      - name: etc
+        target: /etc/
+        params: ""
+      - name: home
+        target: /home/
+        params: "--exclude /home/user/somefolder/"
+      - name: cron
+        target: /var/spool/cron/crontabs/
+        params: ""
+
+    firewall_allowed_tcp_ports:
+      - "22"
+  become: true
+
+

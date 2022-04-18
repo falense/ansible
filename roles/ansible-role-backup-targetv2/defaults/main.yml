@@ -1,0 +1,50 @@
+---
+
+
+# User under which backup jobs will run.
+backup_user: root
+create_backup_user: no
+backup_user_home: "/root"
+backup_script_location: "{{backup_user_home}}"
+
+# Backup cron job options.
+backup_cron_job_state: present #Set this to absent if your recovering a backup
+backup_hour: "*"
+backup_minute: "00"
+
+# Directories to back up. {{ backup_user }} must have read access to these dirs.
+backup_targets:
+  - name: etc
+    target: /etc/
+    params: ""
+  - name: home
+    target: /home/
+    params: ""
+  - name: cron
+    target: /var/spool/cron/crontabs/
+    params: ""
+
+backup_tmp_folder: /tmp/backup
+bash_location: /usr/bin/bash
+
+# RClone parameters and options to control where the backup is delivered.
+rclone_user: ""
+rclone_host: "backup.hacknest.com"
+rclone_backup_identifier: backup
+rclone_backup_remote_base_path: backup/
+rclone_global_params: "--log-file={{backup_tmp_folder}}/backup.log --skip-links"
+
+backup_using_restic: no
+
+pushover_app_token: ""
+pushover_user_token: ""
+
+rclone_encrypt_backup: no #TODO
+rclone_encryption_key: ""
+
+# Add your server's host key to ensure seamless backup functionality.
+backup_remote_host_name: '' #TODO
+backup_remote_host_key: '' #TODO
+
+backup_mysql: no #TODO
+backup_postgresql: no #TODO

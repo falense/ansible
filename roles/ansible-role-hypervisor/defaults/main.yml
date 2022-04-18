@@ -1,0 +1,6 @@
+
+base_image: /home/falense/images/base/focal-server-cloudimg-amd64.img
+images_dir: images
+os: ubuntu18.04
+
+provision_haos: no

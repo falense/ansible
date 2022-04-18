@@ -1,0 +1,72 @@
+#!/bin/bash
+#
+# {{ ansible_managed }}
+#
+# Backup script. Ansible managed. DO NOT EDIT
+#
+
+# Remove temporary folder
+rm -rf {{backup_tmp_folder}} 
+
+# Make temporary folder
+mkdir {{backup_tmp_folder}} 2>&1
+
+#
+# Backup each of the targets configured
+#
+
+{% for item in backup_targets %}
+# Backup {{item.name}}
+rclone sync {{item.target}} backup:backup/{{item.name}}/ {{item.params}} {{rclone_global_params}}; (( exit_status = exit_status || $? ))
+
+{% endfor %}
+{% if backup_mysql %}
+{% endif %}
+#
+# Backup system information
+#
+
+# APT source
+cp /etc/apt/sources.list {{backup_tmp_folder}}/sources.list
+
+# APT keys
+apt-key exportall > {{backup_tmp_folder}}/repositories.key
+
+# Installed pkgs
+dpkg --get-selections > {{backup_tmp_folder}}/pkg.list
+
+# Hardware info
+lshw -html > {{backup_tmp_folder}}/hardware.html
+
+# udev info
+udevadm info --export-db > /tmp/backup/udev.txt
+
+# Device/bios info
+dmidecode > /tmp/backup/bios.txt
+
+
+
+{% if backup_using_restic %}
+#restic init -r rclone:backup:backup/restic -p /root/.file.key
+#restic key add -r rclone:backup:backup/restic --new-password-file /root/.file.key
+restic forget --keep-last 6 --prune -r rclone:backup:backup/restic --verbose  -p /root/.file.key >> /tmp/backup/backup.log
+restic backup -r rclone:backup:backup/restic --verbose --exclude-caches -p /root/.file.key /home/ >> /tmp/backup/backup.log
+#{% else %}
+{% endif %}
+ 
+# Copy system backup to remote
+rclone sync {{backup_tmp_folder}} backup:backup/info/ {{rclone_global_params}}; (( exit_status = exit_status || $? ))
+
+{% if pushover_app_token and pushover_user_token %}
+#Test if backup failed. If backup failed send push to pushover
+if [[ $exit_status -eq 1 ]] 
+then
+    TITLE="`whoami`@${HOSTNAME}"
+    DEVICE="${HOSTNAME}"
+    MESSAGE="Backup failed please verify backup rutine"
+    wget "https://api.pushover.net/1/messages.json" --post-data="token={{pushover_app_token}}&user={{pushover_user_token}}&message=$MESSAGE&title=$TITLE&priority=1&device=$DEVICE" -qO-
+fi
+{% endif %}
+ 
+
+

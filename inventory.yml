@@ -1,0 +1,14 @@
+all:
+  children:
+    hypervisor:
+      hosts:
+        hypervisor.yourdomain.com:
+
+    vms:
+      children:
+        backup_vm:
+          hosts:
+            backup.yourdomain.com:
+        example_vm:
+          hosts:
+            example.yourdomain.com:

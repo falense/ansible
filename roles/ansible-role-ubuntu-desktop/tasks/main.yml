@@ -1,0 +1,6 @@
+- name: Install desktop  
+  apt:
+    pkg:
+     - ubuntu-desktop-minimal
+    state: present
+  become: true
